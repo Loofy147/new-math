@@ -189,3 +189,12 @@ class MicroAGIOrchestrator:
             energy=self.energy_consumed,
             data=self.data_processed
         )
+
+
+    def run_production_checklist_evaluation(self) -> Dict[str, Any]:
+        """
+        Executes a production checklist verification across the framework.
+        """
+        from micro_agi.production_checklist import ProductionChecklistEvaluator
+        evaluator = ProductionChecklistEvaluator()
+        return evaluator.evaluate_readiness(self)

@@ -6,7 +6,7 @@ An implementation of **Micro-AGI**, a probabilistic neuro-symbolic framework for
 
 ## 🚀 Key Architectural Layers
 
-The architecture consists of five dynamic layers intersected by the **Experimental Translation Bridging Substrate (ETBS)**:
+The architecture consists of five dynamic layers intersected by the **Experimental Translation Bridging Substrate (ETBS)** and validated by the **Production Roadmap Checklist Engine**:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -57,6 +57,16 @@ The **ETBS** is a dynamic conduit that cuts horizontally across Layers 0-4 to co
 
 ---
 
+## 📋 Production Roadmap Checklist Engine
+
+Evaluates AGI readiness for mission-critical edge deployments across four categories:
+1. **Architectural Layer Integrity:** Confirms all core layers and interfaces are functioning.
+2. **Experimental Translation Bridging:** Validates presence and operability of the HG, IS, and VM conduits.
+3. **Performance & Efficiency:** Monitors live efficiency parameters (energy footprint and processed data scaling benchmarks).
+4. **Ethical Alignment & Coherence:** Monitors the system to ensure no critical structural conflicts and maintains a healthy cognitive valence parameter.
+
+---
+
 ## 📊 Dynamic Performance Metrics
 
 - **Creativity Index (CI):**
@@ -69,7 +79,7 @@ The **ETBS** is a dynamic conduit that cuts horizontally across Layers 0-4 to co
   $$CQ = \frac{\text{Correct Causal Relations}}{\text{Total Relations}}$$
 
 - **Efficiency:**
-  $$\text{Efficiency} = \frac{\text{CausalDepth} \times \text{Creativity}}{\text{Energy} \times \text{Data}}$$
+  $$\text{Efficiency} = \text{CausalDepth} \times \frac{\text{Creativity}}{\text{Energy} \times \text{Data}}$$
 
 ---
 
@@ -95,7 +105,7 @@ Run the unit test suite:
 python3 -m unittest discover tests
 ```
 
-Execute the full pipeline simulation (now with ETBS enabled):
+Execute the full pipeline simulation (including the production check):
 ```bash
 python3 demo.py
 ```
