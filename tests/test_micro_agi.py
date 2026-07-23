@@ -99,5 +99,22 @@ class TestMicroAGIFramework(unittest.TestCase):
         self.assertIn("ETBS Verified", learning_res["status"])
         self.assertIn("etbs_verification", learning_res)
 
+    def test_production_readiness_checklist(self):
+        orch = MicroAGIOrchestrator()
+        eval_report = orch.run_production_checklist_evaluation()
+
+        self.assertEqual(eval_report["overall_readiness_score"], 100.0)
+        self.assertTrue(eval_report["is_production_ready"])
+        self.assertTrue(eval_report["categories"]["architectural_layer_integrity"]["passed"])
+        self.assertTrue(eval_report["categories"]["experimental_translation_bridging"]["passed"])
+        self.assertTrue(eval_report["categories"]["performance_efficiency"]["passed"])
+        self.assertTrue(eval_report["categories"]["ethical_alignment_coherence"]["passed"])
+
+        # Introduce a conflict and check if score falls/handles it
+        orch.layer2.update_beliefs({"mass_1": -100.0})
+        dirty_report = orch.run_production_checklist_evaluation()
+        self.assertFalse(dirty_report["categories"]["ethical_alignment_coherence"]["passed"])
+        self.assertLess(dirty_report["overall_readiness_score"], 100.0)
+
 if __name__ == "__main__":
     unittest.main()

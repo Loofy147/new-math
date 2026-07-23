@@ -3,6 +3,7 @@
 Micro-AGI Orchestrator Demonstration with Experimental Translation Bridging Substrate (ETBS)
 Runs a complete lifecycle of the Probabilistic Neuro-Symbolic general intelligence framework.
 """
+import json
 from micro_agi.orchestrator import MicroAGIOrchestrator
 
 def main():
@@ -81,6 +82,18 @@ def main():
     print(f"Evolved best causal hyperparameters: {learn_res['metacognition']['best_hyperparameters']}")
     print(f"Narrative Continuity: {learn_res['metacognition']['narrative_state']}")
     print(f"Updated System Metrics: {learn_res['metrics']}")
+    print("\n")
+
+    # ----------------------------------------------------
+    # Case 4: Production Roadmap Checklist Report
+    # ----------------------------------------------------
+    print("--- CASE 4: Production Roadmap Checklist Evaluation Report ---")
+    checklist_report = orchestrator.run_production_checklist_evaluation()
+    print(f"Overall Production Readiness Score: {checklist_report['overall_readiness_score']:.1f}%")
+    print(f"Is Production Ready? {checklist_report['is_production_ready']}")
+    print("\nChecklist Details:")
+    print(json.dumps(checklist_report["categories"], indent=4))
+
     print("\n=========================================================")
     print("            Micro-AGI Lifecycle Completed Successfully   ")
     print("=========================================================")
