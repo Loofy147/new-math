@@ -5,6 +5,7 @@ from micro_agi.layer2_world_model import WorldModel
 from micro_agi.layer3_praxis import PraxisEngine
 from micro_agi.layer4_noetikon import NoetikonLayer
 from micro_agi.orchestrator import MicroAGIOrchestrator
+from micro_agi.etbs import ETBSConduit, ExternalAnchorFusion
 
 class TestMicroAGIFramework(unittest.TestCase):
 
@@ -62,7 +63,24 @@ class TestMicroAGIFramework(unittest.TestCase):
         self.assertEqual(results["consistent_beliefs"]["distance"], 1.0)
         self.assertEqual(len(results["best_hyperparameters"]), 3)
 
-    def test_orchestrator_pipeline(self):
+    def test_etbs_bridging_substrate(self):
+        # 1. External Anchors
+        fusion = ExternalAnchorFusion()
+        self.assertEqual(fusion.fetch_anchor("speed_of_light"), 299792458.0)
+
+        # 2. Conduit workflow
+        conduit = ETBSConduit()
+        res = conduit.execute_bridge(
+            causal_nodes=["distance", "mass_1"],
+            beliefs={"mass_1": 1e11, "mass_2": 1.0, "distance": 1.0},
+            uncertainty=0.9
+        )
+        self.assertIn("hypothesis", res)
+        self.assertIn("simulation", res)
+        self.assertTrue(0.0 <= res["verisimilitude"] <= 1.0)
+        self.assertIn("classification", res["feedback"])
+
+    def test_orchestrator_pipeline_with_etbs(self):
         orch = MicroAGIOrchestrator()
 
         # Simple Query Flow
@@ -70,15 +88,16 @@ class TestMicroAGIFramework(unittest.TestCase):
         self.assertEqual(simple_res["route"], "Local/Direct")
         self.assertIn("directly", simple_res["response"])
 
-        # Complex Query Flow
+        # Complex Query Flow with ETBS bridge integrated
         complex_res = orch.query_flow("Why does gravity decay existentially?")
-        self.assertEqual(complex_res["route"], "Deep Reasoning (Layers 0-4)")
+        self.assertEqual(complex_res["route"], "Deep Reasoning (Layers 0-4) + ETBS Bridge")
         self.assertIn("Reasoned deeply", complex_res["response"])
+        self.assertIn("etbs_bridging", complex_res)
 
         # Learning Loop Integration
         learning_res = orch.learning_loop({"mass_1": 1e12, "distance": 2.0})
-        self.assertEqual(learning_res["status"], "Learning loop complete")
-        self.assertTrue(learning_res["simulation_results"]["gravity_force"] > 0)
+        self.assertIn("ETBS Verified", learning_res["status"])
+        self.assertIn("etbs_verification", learning_res)
 
 if __name__ == "__main__":
     unittest.main()

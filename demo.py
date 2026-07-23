@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Micro-AGI Orchestrator Demonstration
+Micro-AGI Orchestrator Demonstration with Experimental Translation Bridging Substrate (ETBS)
 Runs a complete lifecycle of the Probabilistic Neuro-Symbolic general intelligence framework.
 """
 from micro_agi.orchestrator import MicroAGIOrchestrator
@@ -8,6 +8,7 @@ from micro_agi.orchestrator import MicroAGIOrchestrator
 def main():
     print("=========================================================")
     print("         Micro-AGI Framework: Complete Demo              ")
+    print("      With Experimental Translation Bridging (ETBS)      ")
     print("=========================================================\n")
 
     # Initialize the Orchestrator with routing threshold 1.5
@@ -26,7 +27,7 @@ def main():
     print(f"Metrics: {result_1['metrics']}\n")
 
     # ----------------------------------------------------
-    # Case 2: Deep causal reasoning query (Full ASA activation)
+    # Case 2: Deep causal reasoning query (Full ASA activation + ETBS Bridge)
     # ----------------------------------------------------
     print("--- CASE 2: Processing a complex existential causal query ---")
     query_2 = "Why does gravity decay existentially with lambda over distance?"
@@ -46,13 +47,24 @@ def main():
     print(f"Motivation Score: {result_2['motivation']:.4f}")
     print(f"Internal Friction: {result_2['friction']:.4f}")
     print(f"Simulated Gravity Force: {result_2['simulation']['gravity_force']:.6e} N")
-    print(f"Response: {result_2['response']}")
+
+    # Showcase ETBS bridging details
+    etbs_data = result_2["etbs_bridging"]
+    print("\n[ETBS Substrate Inspection]:")
+    print(f"  - Proposed Hypothesis: {etbs_data['hypothesis']['statement']}")
+    print(f"  - Formula under Test: {etbs_data['hypothesis']['proposed_equation']}")
+    print(f"  - Monte Carlo Sandbox Mean Output: {etbs_data['simulation']['mean']:.6e} N")
+    print(f"  - Empirical Verisimilitude Score: {etbs_data['verisimilitude']:.4f}")
+    print(f"  - Feedback Map Classification: {etbs_data['feedback']['classification']}")
+    print(f"  - Executed Pipeline Action: {etbs_data['feedback']['action']}")
+
+    print(f"\nResponse: {result_2['response']}")
     print(f"Metrics: {result_2['metrics']}\n")
 
     # ----------------------------------------------------
     # Case 3: Interactive Learning Loop
     # ----------------------------------------------------
-    print("--- CASE 3: Running self-evolution learning loop ---")
+    print("--- CASE 3: Running self-evolution learning loop + ETBS ---")
     observation = {
         "mass_1": 5e11,
         "mass_2": 10.0,
@@ -64,6 +76,7 @@ def main():
     print(f"Status: {learn_res['status']}")
     print(f"New Simulated Force: {learn_res['simulation_results']['gravity_force']:.6e} N")
     print(f"Ethical/principle Distance: {learn_res['reward_evaluation']['ethical_distance']:.4f}")
+    print(f"ETBS Hypothesized Validation Score: {learn_res['etbs_verification']['verisimilitude']:.4f}")
     print(f"Metacognition consistent parameters: {learn_res['metacognition']['consistent_beliefs']}")
     print(f"Evolved best causal hyperparameters: {learn_res['metacognition']['best_hyperparameters']}")
     print(f"Narrative Continuity: {learn_res['metacognition']['narrative_state']}")

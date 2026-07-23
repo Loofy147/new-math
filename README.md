@@ -6,7 +6,7 @@ An implementation of **Micro-AGI**, a probabilistic neuro-symbolic framework for
 
 ## 🚀 Key Architectural Layers
 
-The architecture consists of five dynamic layers:
+The architecture consists of five dynamic layers intersected by the **Experimental Translation Bridging Substrate (ETBS)**:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -32,6 +32,28 @@ The architecture consists of five dynamic layers:
 3. **Layer 2 (World Model / Reasoning Substrate):** Executes symbolic calculations using `SymPy` and maps state relationships dynamically through a `NetworkX` causal graph. (e.g. Innovative Gravity model: $F = \frac{G m_1 m_2}{r^2} \cdot e^{-\lambda r}$).
 4. **Layer 3 (Praxis Engine):** Models internal cognitive friction, evaluates valence/motivation, and ensures objective alignment.
 5. **Layer 4 (Noetikon Layer):** Performs metacognition. Coordinates self-evolution using genetic algorithms (`deap`), tracks consistency via a Coherence Supervisor and Reflexive Operator $R$, and preserves memory continuity with a Narrative Identity System.
+
+---
+
+## 🔬 Experimental Translation Bridging Substrate (ETBS)
+
+The **ETBS** is a dynamic conduit that cuts horizontally across Layers 0-4 to convert hypothetical relations into testable predictions and feeds validation signals directly back into L2 causal weights and L4 self-evolution pathways.
+
+### ETBS Core Subsystems:
+- **Hypothesis Generator (HG):** Suggests new mathematical/structural relations from L2 under high uncertainty index.
+- **Internal Sandbox (IS):** High-speed symbolic-numeric inference engine running rapid Monte Carlo simulations with Gaussian noise.
+- **Verification Module (VM):** Measures predicted outputs against known physical laws and **External Anchors** to compute *Empirical Verisimilitude* ($V$).
+- **Feedback Mapper (FM):** Map $V$ scores into correction signals (promoting discoveries or suppressing hallucinations via negative gradients).
+
+### Mathematical Formulations:
+- **Translation Equation:**
+  $$\mathcal{S}(H) = \text{SymPy.compile}\left( \frac{\partial \text{Outcome}}{\partial \text{Intervention}} \right) \quad \text{subject to} \quad \text{Causal Graph } G$$
+
+- **Verisimilitude Calculation:**
+  $$V(H) = \alpha \cdot \text{Corr}(\mathcal{S}_\text{pred}, \mathcal{S}_\text{obs}) + \beta \cdot \left(1 - \frac{\|\text{Noise}_\text{sim} - \text{Noise}_\text{ref}\|}{\|\text{Noise}_\text{ref}\|}\right) + \gamma \cdot \text{Coherence}(H, G)$$
+
+- **Radical Belief Update (L4):**
+  $$\text{Belief}_{t+1} = \text{Belief}_{t} + \lambda \cdot \nabla \left( V(H) \cdot \text{CreativityIndex}(H) \right)$$
 
 ---
 
@@ -73,7 +95,7 @@ Run the unit test suite:
 python3 -m unittest discover tests
 ```
 
-Execute the full pipeline simulation:
+Execute the full pipeline simulation (now with ETBS enabled):
 ```bash
 python3 demo.py
 ```
