@@ -84,7 +84,7 @@ class MicroAGIOrchestrator:
         # 4. Layer 3 (Praxis Engine Evaluation)
         motivation = self.layer3.calculate_motivation(route_decision["complexity"])
         friction = self.layer3.calculate_internal_friction(route_decision["complexity"])
-        decision_eval = self.layer3.evaluate_decision(simulation)
+        decision_eval = self.layer3.evaluate_decision(simulation, target_alignment=simulation["gravity_force"])
 
         # 5. Layer 4 (Noetikon Metacognition & Self-Evolution)
         self.energy_consumed += 2.0
@@ -150,7 +150,7 @@ class MicroAGIOrchestrator:
         )
 
         # Evaluate reward (Layer 3)
-        reward_eval = self.layer3.evaluate_decision(sim)
+        reward_eval = self.layer3.evaluate_decision(sim, target_alignment=sim["gravity_force"])
 
         # Meta-review and self-adaptation (Layer 4)
         metacog = self.layer4.process_metacognition(self.layer2.beliefs, target_force=sim["gravity_force"])
