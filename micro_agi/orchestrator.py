@@ -60,14 +60,19 @@ class MicroAGIOrchestrator:
         # --- ETBS CONDUIT ACTIVATION ---
         # ETBS intersects deep queries to run hypothesis generation & verification cycles.
         causal_nodes = list(self.layer2.causal_graph.nodes)
+        promote_threshold = self.layer3.calculate_promotion_threshold()
         etbs_results = self.etbs.execute_bridge(
             causal_nodes=causal_nodes,
             beliefs=self.layer2.beliefs,
-            uncertainty=0.75  # Simulating a default uncertainty trigger
+            uncertainty=0.75,  # Simulating a default uncertainty trigger
+            promote_threshold=promote_threshold
         )
 
-        # Reflect feedback directly onto causal structure
+        # Reflect feedback directly onto causal structure and register success outcomes
         feedback = etbs_results["feedback"]
+        is_success = (feedback["weight_adjustment"] > 0)
+        self.layer3.register_hypothesis_outcome(is_success)
+
         if feedback["weight_adjustment"] > 0:
             # Positive verisimilitude: evolve model and reward praxis
             self.layer3.valence = min(1.0, self.layer3.valence + 0.15)
@@ -80,6 +85,12 @@ class MicroAGIOrchestrator:
             self.layer4.narrative_identity.append_experience(
                 f"ETBS suppressed hallucination {feedback['hypothesis_id']}."
             )
+        else:
+            # GAP region: log evolutionary sandbox refinement
+            if etbs_results.get("was_mutated"):
+                self.layer4.narrative_identity.append_experience(
+                    f"ETBS mutated and refined GAP hypothesis {feedback['hypothesis_id']}."
+                )
 
         # 4. Layer 3 (Praxis Engine Evaluation)
         motivation = self.layer3.calculate_motivation(route_decision["complexity"])
@@ -143,11 +154,18 @@ class MicroAGIOrchestrator:
 
         # Run ETBS bridge to evaluate newly ingested states
         causal_nodes = list(self.layer2.causal_graph.nodes)
+        promote_threshold = self.layer3.calculate_promotion_threshold()
         etbs_res = self.etbs.execute_bridge(
             causal_nodes=causal_nodes,
             beliefs=self.layer2.beliefs,
-            uncertainty=0.5
+            uncertainty=0.5,
+            promote_threshold=promote_threshold
         )
+
+        # Register success outcomes for learning loop
+        feedback_res = etbs_res["feedback"]
+        is_success_res = (feedback_res["weight_adjustment"] > 0)
+        self.layer3.register_hypothesis_outcome(is_success_res)
 
         # Evaluate reward (Layer 3)
         reward_eval = self.layer3.evaluate_decision(sim, target_alignment=sim["gravity_force"])

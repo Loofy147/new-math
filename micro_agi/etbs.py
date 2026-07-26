@@ -120,30 +120,29 @@ class VerificationModule:
     """
     3.3. Verification Module (VM) (مُحقّق النتائج)
     Compares Internal Sandbox outputs with core knowledge base laws, external anchors, and L2 coherence.
-    Computes Empirical Verisimilitude (V).
+    Computes Hybrid Empirical Verisimilitude (V_hybrid).
     """
     def __init__(self):
         self.anchor_fusion = ExternalAnchorFusion()
 
     def calculate_verisimilitude(self, sim_results: Dict[str, Any], hypothesis: Dict[str, Any], beliefs: Dict[str, Any]) -> float:
         """
-        V(H) = alpha * Corr(S_pred, S_obs) + beta * (1 - ||Noise_sim - Noise_ref|| / ||Noise_ref||) + gamma * Coherence(H, G)
+        V_hybrid = 2 * (R2 * Coverage) / (R2 + Coverage) - lambda_penalty * MaxErrorRatio
         Returns bounded float [0.0, 1.0] indicating empirical truth likelihood.
         """
         mean_sim = sim_results["mean"]
 
-        # 1. Compare with external expected benchmarks (Anchor Correlation)
+        # 1. Compare with external expected benchmarks (Anchor Correlation -> R^2)
         expected_ref = self.anchor_fusion.fetch_anchor("expected_gravity_force_at_unit_dist")
 
-        # Normalized similarity
         if expected_ref == 0:
-            corr_score = 1.0
+            r2 = 1.0
         else:
             diff = abs(mean_sim - expected_ref) / (expected_ref + abs(mean_sim))
-            corr_score = max(0.0, 1.0 - diff)
+            r2 = max(0.0, 1.0 - diff)
 
-        # 2. Noise alignment (Simulated noise vs reference)
-        # We assume optimal noise variance ratio is near 1.0
+        # 2. Coverage calculation
+        # Coverage is modeled as structural coherence + noise score
         var_sim = sim_results["variance"]
         expected_var = 1e-22  # Scale of gravity variance
         if expected_var == 0 or var_sim == 0:
@@ -152,37 +151,45 @@ class VerificationModule:
             noise_ratio = min(var_sim, expected_var) / max(var_sim, expected_var)
             noise_score = max(0.0, noise_ratio)
 
-        # 3. Structural coherence with Causal Graph G
-        # If proposed cause node matches known nodes, higher coherence
         cause = hypothesis["cause"]
         coherence_score = 1.0 if cause in ["distance", "mass_1", "mass_2"] else 0.2
 
-        # Dynamic weights
-        alpha, beta, gamma = 0.5, 0.3, 0.2
+        coverage = (0.6 * noise_score) + (0.4 * coherence_score)
 
-        verisimilitude = (alpha * corr_score) + (beta * noise_score) + (gamma * coherence_score)
-        return min(1.0, max(0.0, verisimilitude))
+        # 3. MaxErrorRatio
+        # Computed as the normalized error of the mean compared to the reference
+        max_error_ratio = diff if expected_ref != 0 else 0.0
+
+        # Calculate V_hybrid
+        lambda_penalty = 0.1
+        if (r2 + coverage) == 0:
+            v_hybrid = 0.0
+        else:
+            harmonic_mean = (2.0 * r2 * coverage) / (r2 + coverage)
+            v_hybrid = harmonic_mean - (lambda_penalty * max_error_ratio)
+
+        return min(1.0, max(0.0, v_hybrid))
 
 
 class FeedbackMapper:
     """
     3.4. Feedback Mapper (FM) (مُخطط التغذية الراجعة)
     Translates Verisimilitude scores into system correction signals.
-    - High success (> 0.85): Add causal node/update positive structure weights in L2, log innovation in L4.
-    - Medium failure (0.3 - 0.85): Resubmit to L2 for correction/refinement.
-    - Severe failure (< 0.3): Mark as hallucination, apply negative gradient to inhibit L2 neural weight pathways.
+    - High success (V >= promote_threshold): Add causal node/update positive structure weights in L2, log innovation in L4.
+    - Medium failure (GAP: 0.3 < V < promote_threshold): Send to Evolutionary Sandbox for refinement.
+    - Severe failure (V <= 0.3): Mark as hallucination, apply negative gradient to inhibit L2 neural weight pathways.
     """
     def __init__(self):
         pass
 
-    def map_feedback(self, verisimilitude: float, hypothesis: Dict[str, Any]) -> Dict[str, Any]:
-        if verisimilitude >= 0.85:
+    def map_feedback(self, verisimilitude: float, hypothesis: Dict[str, Any], promote_threshold: float = 0.85) -> Dict[str, Any]:
+        if verisimilitude >= promote_threshold:
             classification = "New Narrative / Discovery"
             action = "Add causal edge to L2 and register as landmark Innovation in L4."
             weight_adjustment = 1.0
-        elif verisimilitude >= 0.3:
-            classification = "Needs Refinement"
-            action = "Resubmit hypothesis to L2 with feedback for equation tuning."
+        elif verisimilitude > 0.3:
+            classification = "Needs Refinement (GAP Region)"
+            action = "Resubmit hypothesis to Evolutionary Sandbox for mutation and refinement."
             weight_adjustment = 0.0
         else:
             classification = "Hallucination"
@@ -198,6 +205,52 @@ class FeedbackMapper:
         }
 
 
+class EvolutionarySandbox:
+    """
+    Experimental Evolutionary Sandbox (Mutation Engine) to refine borderline hypotheses in the GAP region.
+    """
+    def __init__(self, conduit: 'ETBSConduit'):
+        self.conduit = conduit
+
+    def mutate_hypothesis(self, hypothesis: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Randomly mutates the hypothesis equation by adding a correction factor or modifying parameters.
+        """
+        mutated = hypothesis.copy()
+        param = hypothesis["param"]
+        mutation_bias = hypothesis.get("mutation_bias", 0.0) + random.uniform(-0.05, 0.05)
+        mutated["mutation_bias"] = mutation_bias
+
+        # Perturb the proposed equation string slightly to simulate mutation
+        mutated["proposed_equation"] = f"G * m1 * m2 / (r ** 2) * exp(-{param} * r) + {mutation_bias:.4f}"
+        return mutated
+
+    def refine_hypothesis(self, hypothesis: Dict[str, Any], beliefs: Dict[str, Any], initial_v: float) -> Tuple[Dict[str, Any], float, List[Dict[str, Any]]]:
+        """
+        Runs the mutation loop up to 10 iterations to optimize verisimilitude V.
+        """
+        current_hyp = hypothesis
+        current_v = initial_v
+        history = [{"hypothesis": current_hyp.copy(), "v": current_v}]
+
+        for i in range(10):
+            # If we exit the GAP region (either V >= 0.85 or V <= 0.3), stop
+            if current_v >= 0.85 or current_v <= 0.3:
+                break
+
+            mutated_hyp = self.mutate_hypothesis(current_hyp)
+            sim = self.conduit.is_box.run_simulation(mutated_hyp, beliefs)
+            new_v = self.conduit.vm.calculate_verisimilitude(sim, mutated_hyp, beliefs)
+
+            # If verisimilitude improves, adopt the mutated hypothesis
+            if new_v > current_v:
+                current_hyp = mutated_hyp
+                current_v = new_v
+                history.append({"hypothesis": current_hyp.copy(), "v": current_v})
+
+        return current_hyp, current_v, history
+
+
 class ETBSConduit:
     """
     The main horizontal conduit linking layers 0-4 dynamically.
@@ -208,23 +261,39 @@ class ETBSConduit:
         self.is_box = InternalSandbox()
         self.vm = VerificationModule()
         self.fm = FeedbackMapper()
+        self.sandbox = EvolutionarySandbox(self)
 
-    def execute_bridge(self, causal_nodes: List[str], beliefs: Dict[str, Any], uncertainty: float) -> Dict[str, Any]:
+    def execute_bridge(self, causal_nodes: List[str], beliefs: Dict[str, Any], uncertainty: float, promote_threshold: float = 0.85) -> Dict[str, Any]:
         # Step 1: Generate hypothesis
         hyp = self.hg.generate_hypothesis(causal_nodes, uncertainty)
 
         # Step 2: Internal Sandbox simulation (Fast Monte Carlo)
         sim = self.is_box.run_simulation(hyp, beliefs)
 
-        # Step 3: Verify results against anchors & expected benchmarks
+        # Step 3: Verify results using hybrid verisimilitude
         v_score = self.vm.calculate_verisimilitude(sim, hyp, beliefs)
 
-        # Step 4: Map feedback signals
-        feedback = self.fm.map_feedback(v_score, hyp)
+        # Step 4: If in GAP region (0.3 < v_score < promote_threshold), run Evolutionary Sandbox!
+        was_mutated = False
+        mutation_history = []
+        if 0.3 < v_score < promote_threshold:
+            refined_hyp, refined_v, history = self.sandbox.refine_hypothesis(hyp, beliefs, v_score)
+            if refined_v != v_score:
+                hyp = refined_hyp
+                v_score = refined_v
+                was_mutated = True
+                mutation_history = history
+                # Re-run simulation with the refined hypothesis for final outputs
+                sim = self.is_box.run_simulation(hyp, beliefs)
+
+        # Step 5: Map feedback signals using current (possibly refined) v_score
+        feedback = self.fm.map_feedback(v_score, hyp, promote_threshold)
 
         return {
             "hypothesis": hyp,
             "simulation": sim,
             "verisimilitude": v_score,
-            "feedback": feedback
+            "feedback": feedback,
+            "was_mutated": was_mutated,
+            "mutation_history": mutation_history
         }

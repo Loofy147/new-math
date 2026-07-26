@@ -116,5 +116,49 @@ class TestMicroAGIFramework(unittest.TestCase):
         self.assertFalse(dirty_report["categories"]["ethical_alignment_coherence"]["passed"])
         self.assertLess(dirty_report["overall_readiness_score"], 100.0)
 
+
+    def test_hybrid_verisimilitude_and_sandbox_mutation(self):
+        from micro_agi.etbs import ETBSConduit
+        conduit = ETBSConduit()
+
+        sim_results = {
+            "mean": 6.6743e-11,
+            "variance": 1e-22,
+            "iterations": 100
+        }
+        hyp = {
+            "cause": "distance",
+            "proposed_equation": "G * m1 * m2 / (r ** 2)",
+            "param": "lambda",
+            "id": "hyp_test"
+        }
+
+        v_hybrid = conduit.vm.calculate_verisimilitude(sim_results, hyp, {})
+        self.assertTrue(0.0 <= v_hybrid <= 1.0)
+
+        medium_hyp, medium_v, history = conduit.sandbox.refine_hypothesis(hyp, {}, 0.5)
+        self.assertTrue(len(history) >= 1)
+        self.assertTrue(medium_v >= 0.0)
+
+    def test_dynamic_threshold_modulation(self):
+        from micro_agi.layer3_praxis import PraxisEngine
+        pe = PraxisEngine()
+
+        self.assertEqual(pe.get_success_rate(), 0.5)
+        initial_threshold = pe.calculate_promotion_threshold()
+        self.assertAlmostEqual(initial_threshold, 0.85)
+
+        for _ in range(5):
+            pe.register_hypothesis_outcome(True)
+        self.assertEqual(pe.get_success_rate(), 1.0)
+        high_threshold = pe.calculate_promotion_threshold()
+        self.assertGreater(high_threshold, 0.85)
+
+        for _ in range(10):
+            pe.register_hypothesis_outcome(False)
+        self.assertLess(pe.get_success_rate(), 0.5)
+        low_threshold = pe.calculate_promotion_threshold()
+        self.assertLess(low_threshold, 0.85)
+
 if __name__ == "__main__":
     unittest.main()
