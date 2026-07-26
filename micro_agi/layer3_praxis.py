@@ -6,6 +6,7 @@ class PraxisEngine:
     Layer 3: Praxis Engine (محرك الممارسة)
     Handles emotional and motivational modulation, internal friction modeling,
     and reward / alignment tracking.
+    Now enhanced with success rate tracking and dynamic promotion threshold modulation (Curiosity Modulator).
     """
     def __init__(self, alpha: float = 0.4, beta: float = 0.3, gamma: float = 0.3):
         # Weighting coefficients for Motivation
@@ -17,6 +18,36 @@ class PraxisEngine:
         self.valence = 0.5  # Valence network output (emotional weight - positive/negative)
         self.utility = 0.5  # Task usefulness
         self.curiosity = 0.8  # Dynamic exploratory drive
+
+        # Success rate trackers
+        self.total_hypotheses = 0
+        self.successful_hypotheses = 0
+
+    def get_success_rate(self) -> float:
+        """
+        Calculates the ratio of successfully promoted hypotheses to total processed hypotheses.
+        """
+        if self.total_hypotheses == 0:
+            return 0.5  # baseline default
+        return self.successful_hypotheses / self.total_hypotheses
+
+    def calculate_promotion_threshold(self) -> float:
+        """
+        Dynamically adjusts the promote threshold based on SuccessRate using a tanh-based scaling formula:
+        Threshold = 0.85 + 0.1 * tanh((SuccessRate - 0.5) / 0.2)
+        """
+        success_rate = self.get_success_rate()
+        val = (success_rate - 0.5) / 0.2
+        threshold = 0.85 + 0.1 * math.tanh(val)
+        return min(0.99, max(0.5, threshold))
+
+    def register_hypothesis_outcome(self, is_success: bool):
+        """
+        Logs whether a hypothesis was successfully promoted (is_success=True) or not.
+        """
+        self.total_hypotheses += 1
+        if is_success:
+            self.successful_hypotheses += 1
 
     def calculate_internal_friction(self, decision_complexity: float) -> float:
         """
