@@ -3,30 +3,30 @@
 =========================================================
 
 Total Runs:                 20
-True Discovery Rate (TDR):  15.00%
+True Discovery Rate (TDR):  5.00%
 False Alarm Rate (FAR):     0.00%
-Avg Generations:            4.40
-Execution Time:             7.30 seconds
+Avg Generations:            4.80
+Execution Time:             16.11 seconds
 
 Detailed Run History:
 ---------------------------------------------------------
-Target: Linear       | Run:  0 | Gens: 5 | Discovered: []    | Threshold: 0.7679 | Correction Factor: 1.9545
-Target: Linear       | Run:  1 | Gens: 5 | Discovered: []    | Threshold: 0.7679 | Correction Factor: 2.0648
-Target: Linear       | Run:  2 | Gens: 5 | Discovered: []    | Threshold: 0.7679 | Correction Factor: 2.3256
-Target: Linear       | Run:  3 | Gens: 5 | Discovered: []    | Threshold: 0.7679 | Correction Factor: 2.6964
-Target: Quadratic    | Run:  0 | Gens: 5 | Discovered: []    | Threshold: 0.7679 | Correction Factor: 1.9297
-Target: Quadratic    | Run:  1 | Gens: 5 | Discovered: []    | Threshold: 0.7679 | Correction Factor: 1.8817
-Target: Quadratic    | Run:  2 | Gens: 1 | Discovered: True  | Threshold: 0.8796 | Correction Factor: 1.6455
-Target: Quadratic    | Run:  3 | Gens: 1 | Discovered: True  | Threshold: 0.8796 | Correction Factor: 1.3711
-Target: Cubic        | Run:  0 | Gens: 5 | Discovered: []    | Threshold: 0.7679 | Correction Factor: 2.0507
-Target: Cubic        | Run:  1 | Gens: 1 | Discovered: True  | Threshold: 0.8796 | Correction Factor: 1.1459
-Target: Cubic        | Run:  2 | Gens: 5 | Discovered: []    | Threshold: 0.7679 | Correction Factor: 2.1058
-Target: Cubic        | Run:  3 | Gens: 5 | Discovered: []    | Threshold: 0.7679 | Correction Factor: 1.9784
-Target: Exponential  | Run:  0 | Gens: 5 | Discovered: []    | Threshold: 0.7679 | Correction Factor: 2.6001
-Target: Exponential  | Run:  1 | Gens: 5 | Discovered: []    | Threshold: 0.7679 | Correction Factor: 1.9733
-Target: Exponential  | Run:  2 | Gens: 5 | Discovered: []    | Threshold: 0.7679 | Correction Factor: 2.1091
-Target: Exponential  | Run:  3 | Gens: 5 | Discovered: []    | Threshold: 0.7679 | Correction Factor: 2.0563
-Target: Sine         | Run:  0 | Gens: 5 | Discovered: []    | Threshold: 0.7679 | Correction Factor: 1.9979
-Target: Sine         | Run:  1 | Gens: 5 | Discovered: []    | Threshold: 0.7679 | Correction Factor: 2.0261
-Target: Sine         | Run:  2 | Gens: 5 | Discovered: []    | Threshold: 0.7679 | Correction Factor: 2.0266
-Target: Sine         | Run:  3 | Gens: 5 | Discovered: []    | Threshold: 0.7679 | Correction Factor: 1.5195
+Target: Linear       | Run:  0 | Gens: 5 | Discovered: []    | Threshold: 0.7679 | Correction Factor: 2.0322
+Target: Linear       | Run:  1 | Gens: 5 | Discovered: []    | Threshold: 0.7679 | Correction Factor: 2.1934
+Target: Linear       | Run:  2 | Gens: 5 | Discovered: []    | Threshold: 0.7679 | Correction Factor: 2.0351
+Target: Linear       | Run:  3 | Gens: 5 | Discovered: []    | Threshold: 0.7679 | Correction Factor: 1.3728
+Target: Quadratic    | Run:  0 | Gens: 5 | Discovered: []    | Threshold: 0.7679 | Correction Factor: 2.0890
+Target: Quadratic    | Run:  1 | Gens: 5 | Discovered: []    | Threshold: 0.7679 | Correction Factor: 2.7936
+Target: Quadratic    | Run:  2 | Gens: 5 | Discovered: []    | Threshold: 0.7679 | Correction Factor: 1.2648
+Target: Quadratic    | Run:  3 | Gens: 1 | Discovered: True  | Threshold: 0.8796 | Correction Factor: 1.5353
+Target: Cubic        | Run:  0 | Gens: 5 | Discovered: []    | Threshold: 0.7679 | Correction Factor: 2.0274
+Target: Cubic        | Run:  1 | Gens: 5 | Discovered: []    | Threshold: 0.7679 | Correction Factor: 2.0181
+Target: Cubic        | Run:  2 | Gens: 5 | Discovered: []    | Threshold: 0.7679 | Correction Factor: 2.2185
+Target: Cubic        | Run:  3 | Gens: 5 | Discovered: []    | Threshold: 0.7679 | Correction Factor: 2.6324
+Target: Exponential  | Run:  0 | Gens: 5 | Discovered: []    | Threshold: 0.7679 | Correction Factor: 1.7272
+Target: Exponential  | Run:  1 | Gens: 5 | Discovered: []    | Threshold: 0.7679 | Correction Factor: 2.2387
+Target: Exponential  | Run:  2 | Gens: 5 | Discovered: []    | Threshold: 0.7679 | Correction Factor: 2.3020
+Target: Exponential  | Run:  3 | Gens: 5 | Discovered: []    | Threshold: 0.7679 | Correction Factor: 1.8938
+Target: Sine         | Run:  0 | Gens: 5 | Discovered: []    | Threshold: 0.7679 | Correction Factor: 2.4276
+Target: Sine         | Run:  1 | Gens: 5 | Discovered: []    | Threshold: 0.7679 | Correction Factor: 2.0605
+Target: Sine         | Run:  2 | Gens: 5 | Discovered: []    | Threshold: 0.7679 | Correction Factor: 2.1257
+Target: Sine         | Run:  3 | Gens: 5 | Discovered: []    | Threshold: 0.7679 | Correction Factor: 1.9898
