@@ -160,5 +160,81 @@ class TestMicroAGIFramework(unittest.TestCase):
         low_threshold = pe.calculate_promotion_threshold()
         self.assertLess(low_threshold, 0.85)
 
+
+    def test_crps_score_calculation(self):
+        from micro_agi.etbs import crps_score
+        import numpy as np
+        y_true = np.array([2.0])
+        y_pred = np.array([[1.9], [2.1], [2.0]])
+        val = crps_score(y_true, y_pred)
+        self.assertGreaterEqual(val, 0.0)
+        self.assertLess(val, 1.0)
+
+    def test_pit_and_bayesian_coverage(self):
+        from micro_agi.etbs import pit_histogram, bayesian_coverage_credible
+        import numpy as np
+        y_true = np.array([5.0])
+        y_pred = np.array([[4.8], [5.2], [5.0], [5.1], [4.9]])
+        hist, bins = pit_histogram(y_true, y_pred, n_bins=5)
+        self.assertEqual(len(hist), 5)
+
+        low, mean, high = bayesian_coverage_credible(y_true, y_pred)
+        self.assertTrue(0.0 <= low <= mean <= high <= 1.0)
+
+    def test_cma_es_evolution(self):
+        from micro_agi.etbs import CMA_EvolutionaryEngine
+        import numpy as np
+        engine = CMA_EvolutionaryEngine([1.0, 1.0], (0.1, 5.0), population_size=10)
+        best = engine.evolve(lambda x: -np.sum((x - 2.0)**2), n_generations=2)
+        self.assertEqual(len(best), 2)
+
+    def test_bald_acquisition(self):
+        from micro_agi.etbs import bald_acquisition
+        import numpy as np
+        models = [lambda x: 1.0 * x, lambda x: 1.2 * x]
+        candidates = np.array([1.0, 2.0, 3.0])
+        selected = bald_acquisition(models, candidates, n_samples=1)
+        self.assertEqual(len(selected), 1)
+        self.assertIn(selected[0], candidates)
+
+    def test_curiosity_threshold_manager(self):
+        from micro_agi.layer3_praxis import CuriosityThresholdManager
+        manager = CuriosityThresholdManager(base_threshold=0.85)
+        self.assertEqual(manager.adaptive_threshold, 0.85)
+        val = manager.update(True)
+        self.assertGreater(val, 0.8)
+
+    def test_robust_multimodal_model(self):
+        from micro_agi.etbs import RobustMultiModalModel
+        import numpy as np
+        model = RobustMultiModalModel([1.0, 2.0])
+        x = np.linspace(1, 5, 10)
+        y = 2.0 * x + 0.5 * (x**2)
+        model.fit(x, y)
+        self.assertEqual(len(model.k), 2)
+        preds = model.predict(x[:3])
+        self.assertEqual(len(preds), 3)
+
+    def test_reality_check_layer(self):
+        from micro_agi.etbs import RealityCheckLayer
+        import numpy as np
+        layer = RealityCheckLayer()
+        self.assertEqual(layer.correction_factor, 1.0)
+
+        class MockEngine:
+            def simulate(self, x):
+                return np.array([2.0 * x, 2.0 * x])
+
+        factor = layer.inject_known_perturbation(lambda x: 2.0 * x, MockEngine())
+        self.assertTrue(factor > 0)
+
+    def test_self_proving_hypothesis_engine(self):
+        from micro_agi.etbs import SelfProvingHypothesisEngine
+        engine = SelfProvingHypothesisEngine()
+        res = engine.run_generation()
+        self.assertEqual(res['generation'], 1)
+        self.assertIn('crps', res)
+        self.assertIn('verisimilitude', res)
+
 if __name__ == "__main__":
     unittest.main()

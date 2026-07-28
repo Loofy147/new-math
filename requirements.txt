@@ -1,0 +1,8 @@
+numpy
+scipy
+scikit-learn
+cma
+pydantic
+sympy
+deap
+networkx

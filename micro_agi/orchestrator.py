@@ -5,7 +5,7 @@ from micro_agi.layer2_world_model import WorldModel
 from micro_agi.layer3_praxis import PraxisEngine
 from micro_agi.layer4_noetikon import NoetikonLayer
 from micro_agi.metrics import get_all_metrics
-from micro_agi.etbs import ETBSConduit
+from micro_agi.etbs import ETBSConduit, SelfProvingHypothesisEngine
 
 class MicroAGIOrchestrator:
     """
@@ -21,6 +21,7 @@ class MicroAGIOrchestrator:
 
         # Experimental Translation Bridging Substrate (ETBS) Conduit
         self.etbs = ETBSConduit()
+        self.self_proving_engine = SelfProvingHypothesisEngine()
 
         # Metrics trackers
         self.new_concepts_discovered = 0
@@ -151,6 +152,15 @@ class MicroAGIOrchestrator:
 
         # Run simulation with new observations
         sim = self.layer2.run_simulation()
+
+        # Execute a Self-Proving Hypothesis generation
+        try:
+            self_proving_res = self.self_proving_engine.run_generation()
+            self.layer4.narrative_identity.append_experience(
+                f"Self-Proving Engine Gen {self_proving_res['generation']} completed with {self_proving_res['classification']}."
+            )
+        except Exception as e:
+            self_proving_res = {"status": "failed", "error": str(e)}
 
         # Run ETBS bridge to evaluate newly ingested states
         causal_nodes = list(self.layer2.causal_graph.nodes)
