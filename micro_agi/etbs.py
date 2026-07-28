@@ -2,6 +2,89 @@ import random
 import math
 import sympy as sp
 from typing import Dict, Any, List, Tuple
+import numpy as np
+from scipy.integrate import quad
+from scipy.stats import beta
+from sklearn.linear_model import RANSACRegressor, HuberRegressor, TheilSenRegressor, Ridge
+from scipy.stats import median_abs_deviation
+import cma
+from micro_agi.layer3_praxis import CuriosityThresholdManager
+
+def crps_score(y_true, y_pred_samples) -> float:
+    """
+    Continuous Ranked Probability Score (CRPS).
+    Computes CRPS on empirical distribution using the exact analytical formula:
+    CRPS = mean(|X_i - y|) - 0.5 * mean(|X_i - X_j|)
+    This is extremely fast, robust, and has no numerical integration issues.
+    """
+    y_true = np.atleast_1d(y_true)
+    if y_pred_samples.ndim == 1:
+        y_pred_samples = y_pred_samples[:, np.newaxis]
+
+    n_points = len(y_true)
+    crps_values = []
+
+    for i in range(n_points):
+        samples = y_pred_samples[:, i]
+        n_samples = len(samples)
+        if n_samples == 0:
+            crps_values.append(0.0)
+            continue
+
+        mae = np.mean(np.abs(samples - y_true[i]))
+        diff = np.abs(samples[:, np.newaxis] - samples[np.newaxis, :])
+        mean_diff = np.mean(diff)
+
+        crps_values.append(mae - 0.5 * mean_diff)
+
+    return float(np.mean(crps_values))
+
+def verisimilitude_from_crps(crps: float, baseline_crps: float) -> float:
+    """
+    Transforms CRPS score into verisimilitude [0, 1].
+    """
+    if baseline_crps <= 0:
+        baseline_crps = 1e-15
+    return 1.0 / (1.0 + crps / baseline_crps)
+
+def pit_histogram(y_true, y_pred_samples, n_bins=20) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Calculates Probability Integral Transform (PIT) histogram.
+    """
+    y_true = np.atleast_1d(y_true)
+    if y_pred_samples.ndim == 1:
+        y_pred_samples = y_pred_samples[:, np.newaxis]
+
+    pit_values = []
+    for i in range(len(y_true)):
+        sorted_pred = np.sort(y_pred_samples[:, i])
+        n_samples = len(sorted_pred)
+        if n_samples > 0:
+            pit_values.append(np.searchsorted(sorted_pred, y_true[i]) / n_samples)
+        else:
+            pit_values.append(0.5)
+
+    return np.histogram(pit_values, bins=n_bins, range=(0, 1))
+
+def bayesian_coverage_credible(y_true, y_pred_samples, alpha=0.05) -> Tuple[float, float, float]:
+    """
+    Bayesian Coverage Credible Interval using Beta distribution.
+    """
+    y_true = np.atleast_1d(y_true)
+    if y_pred_samples.ndim == 1:
+        y_pred_samples = y_pred_samples[:, np.newaxis]
+
+    lower = np.percentile(y_pred_samples, 5, axis=0)
+    upper = np.percentile(y_pred_samples, 95, axis=0)
+    coverage_count = np.sum((y_true >= lower) & (y_true <= upper))
+    n_points = len(y_true)
+
+    posterior = beta(coverage_count + 1, n_points - coverage_count + 1)
+    lower_bound = float(posterior.ppf(alpha))
+    mean_val = float(posterior.mean())
+    upper_bound = float(posterior.ppf(1 - alpha))
+
+    return lower_bound, mean_val, upper_bound
 
 class HypothesisGenerator:
     """
@@ -93,6 +176,7 @@ class InternalSandbox:
         return {
             "hypothesis_id": hypothesis["id"],
             "raw_results": results[:10], # sample output
+            "all_results": results,      # all sample outputs for CRPS and statistical analysis
             "mean": mean_val,
             "variance": variance,
             "iterations": iterations
@@ -120,55 +204,47 @@ class VerificationModule:
     """
     3.3. Verification Module (VM) (مُحقّق النتائج)
     Compares Internal Sandbox outputs with core knowledge base laws, external anchors, and L2 coherence.
-    Computes Hybrid Empirical Verisimilitude (V_hybrid).
+    Computes Empirical Verisimilitude using CRPS, PIT, and Bayesian Coverage checks.
     """
     def __init__(self):
         self.anchor_fusion = ExternalAnchorFusion()
 
     def calculate_verisimilitude(self, sim_results: Dict[str, Any], hypothesis: Dict[str, Any], beliefs: Dict[str, Any]) -> float:
         """
-        V_hybrid = 2 * (R2 * Coverage) / (R2 + Coverage) - lambda_penalty * MaxErrorRatio
-        Returns bounded float [0.0, 1.0] indicating empirical truth likelihood.
+        Calculates verisimilitude based on CRPS relative to baseline_crps.
+        Returns bounded float [0.0, 1.0].
         """
-        mean_sim = sim_results["mean"]
-
-        # 1. Compare with external expected benchmarks (Anchor Correlation -> R^2)
         expected_ref = self.anchor_fusion.fetch_anchor("expected_gravity_force_at_unit_dist")
+        if expected_ref is None:
+            expected_ref = 6.6743e-11
 
-        if expected_ref == 0:
-            r2 = 1.0
+        # Use full sample results or fallback gracefully
+        if "all_results" not in sim_results and "raw_results" not in sim_results:
+            mean = sim_results.get("mean", expected_ref)
+            var = sim_results.get("variance", 1e-22)
+            std = math.sqrt(var) if var > 0 else 1e-15
+            y_pred_samples = np.random.normal(mean, std, 100)
         else:
-            diff = abs(mean_sim - expected_ref) / (expected_ref + abs(mean_sim))
-            r2 = max(0.0, 1.0 - diff)
+            y_pred_samples = np.array(sim_results.get("all_results", sim_results.get("raw_results", [])))
 
-        # 2. Coverage calculation
-        # Coverage is modeled as structural coherence + noise score
-        var_sim = sim_results["variance"]
-        expected_var = 1e-22  # Scale of gravity variance
-        if expected_var == 0 or var_sim == 0:
-            noise_score = 0.5
-        else:
-            noise_ratio = min(var_sim, expected_var) / max(var_sim, expected_var)
-            noise_score = max(0.0, noise_ratio)
+        # Ensure correct dimensionality
+        y_true_arr = np.array([expected_ref])
 
-        cause = hypothesis["cause"]
-        coherence_score = 1.0 if cause in ["distance", "mass_1", "mass_2"] else 0.2
+        # Calculate CRPS score
+        crps = crps_score(y_true_arr, y_pred_samples)
 
-        coverage = (0.6 * noise_score) + (0.4 * coherence_score)
+        # Define baseline CRPS
+        baseline_crps = 0.5 * expected_ref if expected_ref > 0 else 1.0
 
-        # 3. MaxErrorRatio
-        # Computed as the normalized error of the mean compared to the reference
-        max_error_ratio = diff if expected_ref != 0 else 0.0
+        # Track CRPS, PIT, and Bayesian coverage in results
+        sim_results["crps"] = crps
+        sim_results["pit_hist"] = pit_histogram(y_true_arr, y_pred_samples)
+        sim_results["bayesian_coverage"] = bayesian_coverage_credible(y_true_arr, y_pred_samples)
 
-        # Calculate V_hybrid
-        lambda_penalty = 0.1
-        if (r2 + coverage) == 0:
-            v_hybrid = 0.0
-        else:
-            harmonic_mean = (2.0 * r2 * coverage) / (r2 + coverage)
-            v_hybrid = harmonic_mean - (lambda_penalty * max_error_ratio)
+        # Compute verisimilitude
+        v_crps = verisimilitude_from_crps(crps, baseline_crps)
 
-        return min(1.0, max(0.0, v_hybrid))
+        return min(1.0, max(0.0, v_crps))
 
 
 class FeedbackMapper:
@@ -296,4 +372,386 @@ class ETBSConduit:
             "feedback": feedback,
             "was_mutated": was_mutated,
             "mutation_history": mutation_history
+        }
+
+
+class CMA_EvolutionaryEngine:
+    """
+    Phase 3: CMA-ES Evolutionary Engine.
+    Evolves causal model exponents using the Covariance Matrix Adaptation Evolution Strategy.
+    Pads to 2D if dimension is 1 to avoid CMA-ES library issues in 1D.
+    """
+    def __init__(self, initial_exponents, bounds, population_size=20):
+        self.original_dim = len(initial_exponents)
+        self.bounds = bounds
+        self.population_size = population_size
+
+        # Pad to 2D if dimension is 1
+        if self.original_dim == 1:
+            self.padded_initial = [initial_exponents[0], bounds[0]]
+            self.padded_bounds = [bounds[0], bounds[1]]
+        else:
+            self.padded_initial = initial_exponents
+            self.padded_bounds = bounds
+
+        self.es = cma.CMAEvolutionStrategy(
+            self.padded_initial,
+            0.5,
+            {'bounds': self.padded_bounds, 'popsize': population_size}
+        )
+        self.best_solution = None
+        self.best_fitness = -np.inf
+        self.stall_count = 0
+
+    def evolve(self, fitness_function, n_generations=10):
+        for generation in range(n_generations):
+            solutions = self.es.ask()
+
+            # Map solutions back to original dimension before calling fitness function
+            mapped_solutions = [sol[:self.original_dim] for sol in solutions]
+            fitness_values = [fitness_function(sol) for sol in mapped_solutions]
+
+            improved = False
+            for sol, fit in zip(mapped_solutions, fitness_values):
+                if fit > self.best_fitness:
+                    self.best_fitness = fit
+                    self.best_solution = sol
+                    improved = True
+
+            if improved:
+                self.stall_count = 0
+            else:
+                self.stall_count += 1
+
+            self.es.tell(solutions, fitness_values)
+
+            # Restart if progress is stalled
+            if self.stall_count > 20:
+                self.stall_count = 0
+                if self.original_dim == 1:
+                    new_x0 = [np.random.uniform(self.bounds[0], self.bounds[1]), self.bounds[0]]
+                else:
+                    new_x0 = np.random.uniform(self.bounds[0], self.bounds[1], size=len(self.best_solution))
+                self.es = cma.CMAEvolutionStrategy(
+                    new_x0,
+                    0.5,
+                    {'bounds': self.padded_bounds, 'popsize': self.population_size}
+                )
+        return self.best_solution
+
+
+def bald_acquisition(model_ensemble, candidate_points, n_samples=1) -> np.ndarray:
+    """
+    Phase 4: Bayesian Active Learning by Disagreement (BALD).
+    Acquisition function to select candidate points that maximize mutual information.
+    """
+    selected = []
+    remaining = np.atleast_1d(candidate_points).astype(float).copy()
+
+    for _ in range(n_samples):
+        if len(remaining) == 0:
+            break
+
+        predictions_list = []
+        for model in model_ensemble:
+            if hasattr(model, 'predict'):
+                pred = model.predict(remaining)
+            elif hasattr(model, 'evaluate'):
+                pred = model.evaluate(remaining)
+            elif callable(model):
+                pred = model(remaining)
+            else:
+                pred = np.zeros_like(remaining)
+            predictions_list.append(pred)
+
+        predictions = np.array(predictions_list)
+
+        aleatoric_var = 0.01
+        epistemic_var = np.var(predictions, axis=0)
+        total_var = epistemic_var + aleatoric_var
+
+        H_mixture = 0.5 * np.log(2 * np.pi * np.e * total_var) + 0.5
+        H_individual = 0.5 * np.log(2 * np.pi * np.e * aleatoric_var) + 0.5
+
+        mutual_info = H_mixture - H_individual
+        idx = np.argmax(mutual_info)
+
+        selected_point = remaining[idx]
+        selected.append(selected_point)
+
+        mask = np.abs(remaining - selected_point) > 0.5
+        remaining = remaining[mask]
+
+    return np.array(selected)
+
+
+class RobustMultiModalModel:
+    """
+    Phase 6: Robust Multi-Modal Model.
+    Fits polynomial and transcendental exponents using RANSAC combined with Ridge regression.
+    Uses median absolute deviation (MAD) and bootstrap covariance estimation.
+    """
+    def __init__(self, exponents):
+        self.exponents = list(exponents)
+        self.k = None
+        self.residual_std = 0.1
+        self.cov_matrix = None
+
+    def _build_features(self, x) -> np.ndarray:
+        x = np.atleast_1d(x)
+        columns = []
+        for exp in self.exponents:
+            if isinstance(exp, str):
+                if exp == 'exp':
+                    col = np.exp(-0.5 * x)
+                elif exp == 'sin':
+                    col = np.sin(x)
+                else:
+                    col = np.ones_like(x)
+            else:
+                col = np.power(x, float(exp))
+            columns.append(col)
+        return np.column_stack(columns)
+
+    def fit(self, x, y):
+        x = np.atleast_1d(x)
+        y = np.atleast_1d(y)
+
+        X = self._build_features(x)
+
+        # RANSAC with Ridge
+        base_estimator = Ridge(alpha=1.0)
+        ransac = RANSACRegressor(
+            estimator=base_estimator,
+            min_samples=0.5 if len(x) >= 4 else 1.0,
+            residual_threshold=0.5,
+            max_trials=1000,
+            random_state=42
+        )
+
+        try:
+            ransac.fit(X, y)
+            self.k = ransac.estimator_.coef_
+        except Exception:
+            self.k = np.linalg.solve(X.T @ X + 1e-4 * np.eye(X.shape[1]), X.T @ y)
+
+        try:
+            theil_sen = TheilSenRegressor()
+            theil_sen.fit(X, y)
+            k_theil = theil_sen.coef_
+
+            if np.linalg.norm(self.k - k_theil) > 1e-6:
+                self.k = 0.7 * self.k + 0.3 * k_theil
+        except Exception:
+            pass
+
+        y_pred = X @ self.k
+        residuals = y - y_pred
+
+        mad = median_abs_deviation(residuals)
+        self.residual_std = max(1e-15, float(mad * 1.4826))
+
+        self.cov_matrix = self._bootstrap_covariance(X, residuals)
+
+    def _bootstrap_covariance(self, X, residuals, n_bootstrap=200):
+        k_samples = []
+        n = len(residuals)
+        if n < 2:
+            return np.eye(len(self.exponents)) * 1e-5
+
+        for _ in range(n_bootstrap):
+            idx = np.random.choice(n, n, replace=True)
+            res_boot = residuals[idx]
+            X_boot = X[idx]
+            try:
+                k_boot = np.linalg.solve(X_boot.T @ X_boot + 1e-4 * np.eye(X_boot.shape[1]), X_boot.T @ (X_boot @ self.k + res_boot))
+                k_samples.append(k_boot)
+            except Exception:
+                continue
+
+        if k_samples:
+            cov = np.cov(np.array(k_samples).T)
+            if cov.ndim == 0:
+                cov = np.array([[float(cov)]])
+            return cov
+        return np.eye(len(self.exponents)) * 1e-5
+
+    def predict(self, x) -> np.ndarray:
+        x = np.atleast_1d(x)
+        X = self._build_features(x)
+        return X @ self.k
+
+    def sample_predictions(self, x, n_samples=100) -> np.ndarray:
+        x = np.atleast_1d(x)
+        mean_pred = self.predict(x)
+        samples = []
+        for _ in range(n_samples):
+            if self.cov_matrix is not None:
+                try:
+                    if self.cov_matrix.shape == (1, 1):
+                        sampled_k = np.random.normal(self.k[0], np.sqrt(self.cov_matrix[0, 0]), size=1)
+                    else:
+                        sampled_k = np.random.multivariate_normal(self.k, self.cov_matrix)
+                    X = self._build_features(x)
+                    pred = X @ sampled_k
+                except Exception:
+                    pred = mean_pred + np.random.normal(0, self.residual_std, size=len(x))
+            else:
+                pred = mean_pred + np.random.normal(0, self.residual_std, size=len(x))
+            samples.append(pred)
+        return np.array(samples)
+
+
+class RealityCheckLayer:
+    """
+    Phase 7: Reality Check Layer.
+    Injects known physical perturbations and updates calibration using Conformal Prediction.
+    """
+    def __init__(self, calibration_frequency=10):
+        self.calibration_frequency = calibration_frequency
+        self.generation_counter = 0
+        self.calibration_data = []
+        self.correction_factor = 1.0
+
+    def inject_known_perturbation(self, true_function, engine, x_range=(0.5, 10.0)):
+        x_test = np.random.uniform(*x_range, size=5)
+        y_true = true_function(x_test)
+
+        predictions = engine.simulate(x_test)
+        predicted_std = np.std(predictions, axis=0)
+        actual_error = np.abs(y_true - np.mean(predictions, axis=0))
+
+        for i in range(len(x_test)):
+            self.calibration_data.append({
+                'x': x_test[i],
+                'y_true': y_true[i],
+                'pred_mean': np.mean(predictions[:, i]),
+                'pred_std': predicted_std[i],
+                'actual_error': actual_error[i]
+            })
+
+        if len(self.calibration_data) > 3:
+            self._update_correction_factor()
+
+        return self.correction_factor
+
+    def _update_correction_factor(self):
+        errors = [d['actual_error'] for d in self.calibration_data]
+        std_error = np.std(errors)
+        mean_error = np.mean(errors)
+
+        target_factor = 1.0 + mean_error / (std_error + 1e-6)
+        target_factor = np.clip(target_factor, 0.5, 10.0)
+
+        self.correction_factor = 0.9 * self.correction_factor + 0.1 * target_factor
+
+        if len(self.calibration_data) > 50:
+            self.calibration_data = self.calibration_data[-50:]
+
+    def calibrate_predictions(self, predictions):
+        return predictions * self.correction_factor
+
+
+class SelfProvingHypothesisEngine:
+    """
+    SelfProvingHypothesisEngine (محرك إثبات الفرضيات الذاتي)
+    Coordinates CMA-ES, Robust Regression, CRPS/Bayesian coverage, and Conformal prediction.
+    """
+    def __init__(self, baseline_crps=None):
+        # Default to 2D exponents [1.0, 2.0] to fit multi-term equations like quadratics and linears
+        self.evolution_engine = CMA_EvolutionaryEngine([1.0, 2.0], (0.1, 5.0))
+        self.threshold_manager = CuriosityThresholdManager()
+        self.reality_check = RealityCheckLayer(calibration_frequency=2)
+        self.model_ensemble = []
+        self.promoted_models = []
+        self.gap_queue = []
+        self.generation = 0
+        self.baseline_crps = baseline_crps
+
+        # Default calibration & reference points for demonstration / validation
+        self.calibration_x = np.linspace(1.0, 10.0, 30)
+        self.calibration_y = 6.6743e-11 / (self.calibration_x ** 2)
+
+        self.reference_x = np.linspace(1.0, 10.0, 15)
+        self.reference_y = 6.6743e-11 / (self.reference_x ** 2)
+        self.reference_true_function = lambda x: 6.6743e-11 / (x ** 2)
+
+    def simulate(self, x, n_samples=100) -> np.ndarray:
+        if self.model_ensemble:
+            model = self.model_ensemble[-1]
+        else:
+            model = RobustMultiModalModel([1.0, 2.0])
+            model.fit(self.calibration_x, self.calibration_y)
+            self.model_ensemble.append(model)
+        samples = model.sample_predictions(x, n_samples=n_samples)
+        return self.reality_check.calibrate_predictions(samples)
+
+    def run_generation(self) -> Dict[str, Any]:
+        new_exponents = self.evolution_engine.es.ask()
+
+        orig_exponents = [sol[:self.evolution_engine.original_dim] for sol in new_exponents]
+
+        # Merge continuous exponents optimized by CMA-ES with transcendental and power bank terms
+        combined_exponents = list(orig_exponents[0]) + ['exp', 'sin', 3.0]
+        new_model = RobustMultiModalModel(combined_exponents)
+        new_model.fit(self.calibration_x, self.calibration_y)
+        self.model_ensemble.append(new_model)
+        if len(self.model_ensemble) > 10:
+            self.model_ensemble.pop(0)
+
+        y_sim = new_model.sample_predictions(self.reference_x, n_samples=100)
+        y_sim_calibrated = self.reality_check.calibrate_predictions(y_sim)
+
+        crps = crps_score(self.reference_y, y_sim_calibrated)
+
+        # Dynamically scale baseline_crps if not explicitly provided
+        if self.baseline_crps is None:
+            std_ref = np.std(self.reference_y)
+            baseline = 0.5 * std_ref if std_ref > 0 else 1.0
+        else:
+            baseline = self.baseline_crps
+
+        verisimilitude = verisimilitude_from_crps(crps, baseline)
+
+        pit_hist = pit_histogram(self.reference_y, y_sim_calibrated)
+        lower_coverage, mean_coverage, upper_coverage = bayesian_coverage_credible(self.reference_y, y_sim_calibrated)
+
+        # Robust promotion criteria: based on dynamic baseline CRPS or high verisimilitude
+        promoted_flag = (crps < 0.15 * baseline) or (verisimilitude > 0.85)
+        inhibited_flag = (crps > 0.5 * baseline) and (verisimilitude < 0.4)
+
+        adaptive_threshold = self.threshold_manager.update(promoted_flag)
+
+        classification = "GAP (Needs Refinement)"
+        if promoted_flag:
+            classification = "Promoted (Discovery)"
+            self.promoted_models.append(new_model)
+        elif inhibited_flag:
+            classification = "Inhibited (Hallucination)"
+        else:
+            self.gap_queue.append(new_model)
+
+        # Fitness combines verisimilitude and coverage for the CMA-ES optimizer
+        fitness_val = verisimilitude + 0.1 * float(lower_coverage)
+        self.evolution_engine.es.tell(new_exponents, [fitness_val] * len(new_exponents))
+
+        for exponents_set in orig_exponents:
+            if fitness_val > self.evolution_engine.best_fitness:
+                self.evolution_engine.best_fitness = fitness_val
+                self.evolution_engine.best_solution = exponents_set
+
+        if self.generation % self.reality_check.calibration_frequency == 0:
+            self.reality_check.inject_known_perturbation(self.reference_true_function, self)
+
+        self.generation += 1
+
+        return {
+            "generation": self.generation,
+            "exponents": orig_exponents[0],
+            "crps": crps,
+            "verisimilitude": verisimilitude,
+            "lower_coverage": lower_coverage,
+            "classification": classification,
+            "adaptive_threshold": adaptive_threshold,
+            "correction_factor": self.reality_check.correction_factor
         }

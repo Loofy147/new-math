@@ -1,5 +1,40 @@
+
+class CuriosityThresholdManager:
+    """
+    Phase 5: Stable Dynamic Threshold Tuning.
+    Manages and dynamically adapts the curious promotion threshold.
+    """
+    def __init__(self, base_threshold=0.85, time_constant=50):
+        self.adaptive_threshold = base_threshold
+        self.success_history = []
+        self.time_constant = time_constant
+
+    def update(self, promoted_flag) -> float:
+        self.success_history.append(1.0 if promoted_flag else 0.0)
+
+        if len(self.success_history) > self.time_constant:
+            self.success_history.pop(0)
+
+        success_rate = np.mean(self.success_history)
+        target_threshold = 0.85 + 0.1 * np.tanh((success_rate - 0.5) / 0.2)
+
+        self.adaptive_threshold = (
+            0.7 * self.adaptive_threshold +
+            0.3 * target_threshold
+        )
+
+        if len(self.success_history) > 5:
+            recent = self.success_history[-5:]
+            if all(recent) or not any(recent):
+                return float(target_threshold)
+            else:
+                return float(self.adaptive_threshold)
+
+        return float(self.adaptive_threshold)
+
 import math
 from typing import Dict, Any
+import numpy as np
 
 class PraxisEngine:
     """
@@ -22,6 +57,7 @@ class PraxisEngine:
         # Success rate trackers
         self.total_hypotheses = 0
         self.successful_hypotheses = 0
+        self.threshold_manager = CuriosityThresholdManager()
 
     def get_success_rate(self) -> float:
         """
@@ -33,12 +69,9 @@ class PraxisEngine:
 
     def calculate_promotion_threshold(self) -> float:
         """
-        Dynamically adjusts the promote threshold based on SuccessRate using a tanh-based scaling formula:
-        Threshold = 0.85 + 0.1 * tanh((SuccessRate - 0.5) / 0.2)
+        Dynamically adjusts the promote threshold using CuriosityThresholdManager.
         """
-        success_rate = self.get_success_rate()
-        val = (success_rate - 0.5) / 0.2
-        threshold = 0.85 + 0.1 * math.tanh(val)
+        threshold = self.threshold_manager.adaptive_threshold
         return min(0.99, max(0.5, threshold))
 
     def register_hypothesis_outcome(self, is_success: bool):
@@ -48,6 +81,7 @@ class PraxisEngine:
         self.total_hypotheses += 1
         if is_success:
             self.successful_hypotheses += 1
+        self.threshold_manager.update(is_success)
 
     def calculate_internal_friction(self, decision_complexity: float) -> float:
         """
