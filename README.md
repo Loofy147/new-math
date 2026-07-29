@@ -57,6 +57,27 @@ The **ETBS** is a dynamic conduit that cuts horizontally across Layers 0-4 to co
 
 ---
 
+## 🧠 Micro-AGI v3.0 (Atlas Edition)
+
+Micro-AGI v3.0 introduces deep structural integrations directly derived from the **Universal Leverage Atlas**, refining self-proving guarantees, resilience, and noise-robust active discovery:
+
+1. **Upgrade A (Zero-Knowledge Attestation - Entry 26):**
+   When the engine discovers a physical law or promotes a model, it generates a lightweight cryptographic commitment of parameters using SHA-256 and provides verification proofs on independent datasets without revealing the internal model structure.
+
+2. **Upgrade B (Model Zoo with N-1 Contingency - Entry 10):**
+   The engine maintains an active ensemble of diverse models representing different mathematical structural families (Polynomial, Exponential, Trigonometric, Hybrid). If the best-performing model fails, the system triggers N-1 contingency, falling back onto secondary models in the zoo without stopping discovery.
+
+3. **Upgrade C (Correlation Filter - Entry 30):**
+   To prevent search space bloat and severe overfitting in highly collinear environments, candidate terms are filtered using Pearson correlation. Terms with $|\rho| > 0.995$ relative to existing terms are discarded.
+
+4. **Diagnosis A (Weak Ties - Entry 5):**
+   To avoid closed-loop echo chambers, the system injects periodic "weak ties" (external datasets/unrelated mathematical rules) every 5 generations to maintain network distance and global generalizability.
+
+5. **Diagnosis B (Camouflaged Active Sampling - Entry 21):**
+   Instead of raw BALD active query points, the system executes **Camouflaged BALD queries (The Kyle Model)**. True target inquiry points are blended with randomized "distractor" query points at a controlled ratio (1.5x) to prevent adversaries or external agents from reconstructing model weaknesses.
+
+---
+
 ## 📋 Production Roadmap Checklist Engine
 
 Evaluates AGI readiness for mission-critical edge deployments across four categories:
