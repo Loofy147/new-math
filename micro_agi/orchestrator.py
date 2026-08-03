@@ -23,6 +23,11 @@ class MicroAGIOrchestrator:
         self.etbs = ETBSConduit()
         self.self_proving_engine = SelfProvingHypothesisEngine()
 
+        # Kaggle Production Integration
+        from micro_agi.kaggle_integration import KaggleDataSource, KaggleCompetitionIntegration
+        self.kaggle_data = KaggleDataSource()
+        self.kaggle_competition = KaggleCompetitionIntegration()
+
         # Metrics trackers
         self.new_concepts_discovered = 0
         self.total_concepts = 10
